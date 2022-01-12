@@ -1,0 +1,6 @@
+[submodule "src/3rd/ovbase"]
+	path = src/3rd/ovbase
+	url = https://github.com/oov/ovbase
+[submodule "src/3rd/ovutil"]
+	path = src/3rd/ovutil
+	url = https://github.com/oov/ovutil
