@@ -65,6 +65,8 @@ cleanup:
 }
 
 static void aux_channel_reset(struct aux_channel *const c) {
+  c->used_at = 0;
+  c->parameter_updated_at = 0;
   clear_buffer(c);
   uxfdreverb_clear(c->reverb);
 }

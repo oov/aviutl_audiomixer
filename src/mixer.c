@@ -131,7 +131,9 @@ NODISCARD error mixer_create(struct mixer **const mp) {
     goto cleanup;
   }
   struct mixer *const m = *mp;
-  *m = (struct mixer){0};
+  *m = (struct mixer){
+      .frame_counter = 1,
+  };
   err = dynamics_create(&m->limiter);
   if (efailed(err)) {
     err = ethru(err);
@@ -175,7 +177,7 @@ void mixer_reset(struct mixer *const m) {
   dynamics_clear(m->limiter);
   channel_list_reset(m->cl);
   aux_channel_list_reset(m->acl);
-  m->frame_counter = 0;
+  m->frame_counter = 1;
   m->position = 0;
 }
 

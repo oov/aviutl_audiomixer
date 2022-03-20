@@ -229,6 +229,7 @@ static float channel_get_lookahead_duration(struct channel const *const c) {
 }
 
 static void channel_reset(struct channel *const c) {
+  c->used_at = 0;
   circbuffer_i16_clear(c->buf);
   lagger_clear(c->lagger);
   rbjeq_clear(c->low_shelf);
@@ -409,7 +410,7 @@ void channel_list_mix(struct channel_list const *const cl,
       dynamics_process(c->dyn, (float const *restrict const *)ch, tmp, samples);
       swap(&ch, &tmp);
     }
-    if (c->aux_send > -144.f && cl->write_to_send_target_func) {
+    if (c->aux_send_id > -1 && fcmp(c->aux_send, >, -144.f, 1e-12f) && cl->write_to_send_target_func) {
       ereport(cl->write_to_send_target_func(
           cl->userdata, c->aux_send_id, counter, (float const *restrict const *)ch, samples, c->aux_send));
     }
