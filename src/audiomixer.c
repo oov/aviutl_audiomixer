@@ -175,16 +175,15 @@ static BOOL filter_proc_aux1(FILTER *fp, FILTER_PROC_INFO *fpip) {
   error err = mixer_update_aux_channel(g_mixer,
                                        id,
                                        &(struct aux_channel_effect_params){
-                                           .reverb_preset = fp->track[1],
                                            .reverb =
                                                {
-                                                   .pre_delay = (float)(fp->track[2]) * div10000,
-                                                   .band_width = (float)(fp->track[3]) * div10000,
-                                                   .diffuse = (float)(fp->track[4]) * div10000,
-                                                   .decay = (float)(fp->track[5]) * div10000,
-                                                   .damping = (float)(fp->track[6]) * div10000,
-                                                   .excursion = (float)(fp->track[7]) * div10000,
-                                                   .wet = slider_to_db(fp->track[8]),
+                                                   .pre_delay = (float)(fp->track[1]) * div10000,
+                                                   .band_width = (float)(fp->track[2]) * div10000,
+                                                   .diffuse = (float)(fp->track[3]) * div10000,
+                                                   .decay = (float)(fp->track[4]) * div10000,
+                                                   .damping = (float)(fp->track[5]) * div10000,
+                                                   .excursion = (float)(fp->track[6]) * div10000,
+                                                   .wet = slider_to_db(fp->track[7]),
                                                },
                                        },
                                        &updated);
@@ -521,12 +520,11 @@ static FILTER_DLL g_channel_strip_filter_dll = {
 static FILTER_DLL g_aux1_channel_strip_filter_dll = {
     .flag = FILTER_FLAG_PRIORITY_HIGHEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER | FILTER_FLAG_NO_CONFIG,
     .name = CHANNEL_STRIP_NAME_MBCS " - " AUX1_NAME_MBCS,
-    .track_n = 9,
-    .track_name =
-        (TCHAR *[]){"ID", "R Preset", "R PreDly", "R LPF", "R Diffuse", "R Decay", "R Damping", "R Excursion", "R Wet"},
-    .track_default = (int[]){-1, -1, 0, 10000, 10000, 5000, 50, 5000, 0},
-    .track_s = (int[]){-1, -1, 0, 0, 0, 0, 0, 0, -10000},
-    .track_e = (int[]){100, 1, 10000, 10000, 10000, 10000, 10000, 10000, 0},
+    .track_n = 8,
+    .track_name = (TCHAR *[]){"ID", "R PreDly", "R LPF", "R Diffuse", "R Decay", "R Damping", "R Excursion", "R Wet"},
+    .track_default = (int[]){-1, 0, 10000, 10000, 5000, 50, 5000, 0},
+    .track_s = (int[]){-1, 0, 0, 0, 0, 0, 0, -10000},
+    .track_e = (int[]){100, 10000, 10000, 10000, 10000, 10000, 10000, 0},
     .func_proc = filter_proc_aux1,
 };
 

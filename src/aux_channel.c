@@ -7,27 +7,6 @@
 #include "inlines.h"
 #include "uxfdreverb.h"
 
-static const struct aux_channel_effect_reverb_params reverb_presets[aux_channel_reverb_preset_max] = {
-    {
-        // room
-        .band_width = 0.56f,
-        .pre_delay = 0.1f,
-        .diffuse = 0.5f,
-        .decay = 0.32f,
-        .damping = 0.64f,
-        .excursion = 0.f,
-    },
-    {
-        // church
-        .band_width = 0.98f,
-        .pre_delay = 0.05f,
-        .diffuse = 0.9f,
-        .decay = 0.82f,
-        .damping = 0.29f,
-        .excursion = 0.8f,
-    },
-};
-
 struct aux_channel {
   size_t used_at;
   size_t parameter_updated_at;
@@ -72,17 +51,14 @@ static void aux_channel_reset(struct aux_channel *const c) {
 }
 
 static void aux_channel_set_effects(struct aux_channel *const c, struct aux_channel_effect_params const *e) {
-  struct aux_channel_effect_reverb_params const *rev = &e->reverb;
-  if (0 <= e->reverb_preset && e->reverb_preset < aux_channel_reverb_preset_max) {
-    rev = reverb_presets + e->reverb_preset;
-  }
+  struct aux_channel_effect_reverb_params const *const rev = &e->reverb;
   uxfdreverb_set_band_width(c->reverb, rev->band_width);
   uxfdreverb_set_pre_delay(c->reverb, rev->pre_delay);
   uxfdreverb_set_diffuse(c->reverb, rev->diffuse);
   uxfdreverb_set_decay(c->reverb, rev->decay);
   uxfdreverb_set_damping(c->reverb, rev->damping);
   uxfdreverb_set_excursion(c->reverb, rev->excursion);
-  uxfdreverb_set_wet(c->reverb, db_to_amp(e->reverb.wet)); // ignore preset wet
+  uxfdreverb_set_wet(c->reverb, db_to_amp(rev->wet));
 }
 
 NODISCARD static error aux_channel_update_internal_parameter(struct aux_channel *const c, bool *const updated) {

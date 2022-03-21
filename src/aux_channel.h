@@ -2,13 +2,6 @@
 
 #include "ovbase.h"
 
-enum aux_channel_reverb_preset {
-  aux_channel_reverb_preset_off = -1,
-  aux_channel_reverb_preset_room = 0,
-  aux_channel_reverb_preset_church = 1,
-  aux_channel_reverb_preset_max = 2,
-};
-
 struct aux_channel_effect_reverb_params {
   float band_width;
   float pre_delay;
@@ -20,7 +13,6 @@ struct aux_channel_effect_reverb_params {
 };
 
 struct aux_channel_effect_params {
-  int reverb_preset;
   struct aux_channel_effect_reverb_params reverb;
 };
 
