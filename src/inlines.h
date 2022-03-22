@@ -182,7 +182,7 @@ static inline void float_to_interleaved_int16_generic(int16_t *restrict const de
   static float const m = 32767.f;
   for (size_t i = 0; i < samples; ++i) {
     for (size_t ch = 0; ch < channels; ++ch) {
-      dest[i * channels + ch] = (int16_t)(clip_soft(src[ch][i]) * m);
+      dest[i * channels + ch] = (int16_t)(clip_hard(src[ch][i]) * m);
     }
   }
 }
@@ -195,8 +195,8 @@ static inline void float_to_interleaved_int16_stereo(int16_t *restrict const des
   int16_t *restrict const dp = dest;
   static float const m = 32767.f;
   for (size_t i = 0; i < samples; ++i) {
-    dp[i * 2 + 0] = (int16_t)(clip_soft(sp0[i]) * m);
-    dp[i * 2 + 1] = (int16_t)(clip_soft(sp1[i]) * m);
+    dp[i * 2 + 0] = (int16_t)(clip_hard(sp0[i]) * m);
+    dp[i * 2 + 1] = (int16_t)(clip_hard(sp1[i]) * m);
   }
 }
 
@@ -207,7 +207,7 @@ static inline void float_to_interleaved_int16_mono(int16_t *restrict const dest,
   int16_t *restrict const dp = dest;
   static float const m = 32767.f;
   for (size_t i = 0; i < samples; ++i) {
-    dp[i] = (int16_t)(clip_soft(sp0[i]) * m);
+    dp[i] = (int16_t)(clip_hard(sp0[i]) * m);
   }
 }
 
