@@ -24,6 +24,7 @@ struct mixer {
   uint64_t position;
   bool warming;
 
+  struct dither_state dither;
   struct array2d mixbuf;
   struct array2d chbuf;
   struct array2d auxbuf;
@@ -35,10 +36,20 @@ static void release_buffer(struct mixer *const m) {
   array2d_release(&m->auxbuf);
   array2d_release(&m->chbuf);
   array2d_release(&m->mixbuf);
+  ereport(afree(&m->dither));
 }
 
 NODISCARD static error allocate_buffer(struct mixer *const m, size_t const samples_per_frame, size_t const channels) {
-  error err = array2d_allocate(&m->mixbuf, channels, samples_per_frame);
+  error err = agrow(&m->dither, channels);
+  if (efailed(err)) {
+    err = ethru(err);
+    goto cleanup;
+  }
+  m->dither.seed = 0x1234abcd;
+  for (size_t ch = 0; ch < m->dither.len; ++ch) {
+    m->dither.ptr[ch] = 0.f;
+  }
+  err = array2d_allocate(&m->mixbuf, channels, samples_per_frame);
   if (efailed(err)) {
     err = ethru(err);
     goto cleanup;
@@ -79,6 +90,7 @@ NODISCARD error mixer_destroy(struct mixer **const mp) {
   array2d_release(&m->auxbuf);
   array2d_release(&m->chbuf);
   array2d_release(&m->mixbuf);
+  ereport(afree(&m->dither));
 
   ereport(mem_free(mp));
   return eok();
@@ -179,6 +191,10 @@ void mixer_reset(struct mixer *const m) {
   aux_channel_list_reset(m->acl);
   m->frame_counter = 1;
   m->position = 0;
+  m->dither.seed = 0x1234abcd;
+  for (size_t ch = 0; ch < m->dither.len; ++ch) {
+    m->dither.ptr[ch] = 0.f;
+  }
 }
 
 NODISCARD error mixer_set_format(struct mixer *const m,
@@ -215,6 +231,7 @@ NODISCARD error mixer_set_format(struct mixer *const m,
   m->auxbuf = tmp.auxbuf;
   m->chbuf = tmp.chbuf;
   m->mixbuf = tmp.mixbuf;
+  m->dither = tmp.dither;
   m->sample_rate = sample_rate;
   m->channels = channels;
   m->samples_per_frame = samples_per_frame;
@@ -285,7 +302,7 @@ void mixer_mix(struct mixer *const m, int16_t *restrict const buffer, size_t con
   dynamics_process(m->limiter, (float const *restrict const *const)mixbuf, subbuf, samples);
   swap(&mixbuf, &subbuf);
 
-  float_to_interleaved_int16(buffer, (float const *restrict const *const)mixbuf, channels, samples);
+  float_to_interleaved_int16(buffer, (float const *restrict const *const)mixbuf, &m->dither, channels, samples);
 
   if ((frame_counter & 0xff) == 0xff) {
     channel_list_gc(m->cl, frame_counter);
