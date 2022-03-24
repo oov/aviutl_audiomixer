@@ -338,8 +338,7 @@ static inline float clip(float x) {
   if (x > 1.f) {
     x = 1.f;
   }
-  static float const t = 1.f / 3.f;
-  return x - t * x * x * x;
+  return x;
 }
 
 static inline void float_to_interleaved_int16(int16_t *restrict const dest,
