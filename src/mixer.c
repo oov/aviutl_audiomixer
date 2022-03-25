@@ -24,7 +24,7 @@ struct mixer {
   uint64_t position;
   bool warming;
 
-  struct dither_state dither;
+  struct dither dither;
   struct array2d mixbuf;
   struct array2d chbuf;
   struct array2d auxbuf;
@@ -36,18 +36,14 @@ static void release_buffer(struct mixer *const m) {
   array2d_release(&m->auxbuf);
   array2d_release(&m->chbuf);
   array2d_release(&m->mixbuf);
-  ereport(afree(&m->dither));
+  ereport(dither_destroy(&m->dither));
 }
 
 NODISCARD static error allocate_buffer(struct mixer *const m, size_t const samples_per_frame, size_t const channels) {
-  error err = agrow(&m->dither, channels);
+  error err = dither_create(&m->dither, channels);
   if (efailed(err)) {
     err = ethru(err);
     goto cleanup;
-  }
-  m->dither.seed = 0x1234abcd;
-  for (size_t ch = 0; ch < m->dither.len; ++ch) {
-    m->dither.ptr[ch] = 0.f;
   }
   err = array2d_allocate(&m->mixbuf, channels, samples_per_frame);
   if (efailed(err)) {
@@ -90,7 +86,7 @@ NODISCARD error mixer_destroy(struct mixer **const mp) {
   array2d_release(&m->auxbuf);
   array2d_release(&m->chbuf);
   array2d_release(&m->mixbuf);
-  ereport(afree(&m->dither));
+  ereport(dither_destroy(&m->dither));
 
   ereport(mem_free(mp));
   return eok();
@@ -191,10 +187,7 @@ void mixer_reset(struct mixer *const m) {
   aux_channel_list_reset(m->acl);
   m->frame_counter = 1;
   m->position = 0;
-  m->dither.seed = 0x1234abcd;
-  for (size_t ch = 0; ch < m->dither.len; ++ch) {
-    m->dither.ptr[ch] = 0.f;
-  }
+  dither_reset(&m->dither);
 }
 
 NODISCARD error mixer_set_format(struct mixer *const m,

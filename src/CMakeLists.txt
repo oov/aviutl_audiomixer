@@ -22,6 +22,7 @@ add_library(audiomixer_auf SHARED
   channel.c
   circbuffer.c
   circbuffer_i16.c
+  dither.c
   dynamics.c
   error_axr.c
   lagger.c

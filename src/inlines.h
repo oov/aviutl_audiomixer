@@ -4,6 +4,8 @@
 
 #include "ovbase.h"
 
+#include "dither.h"
+
 static inline int maxi(int const a, int const b) { return a > b ? a : b; }
 
 static inline int fcompare(float x, float y, float tolerance) {
@@ -156,32 +158,14 @@ static inline void interleaved_int16_to_float(float *restrict const *const dest,
   }
 }
 
-struct dither_state {
-  float *ptr;
-  size_t len;
-  size_t cap;
-  uint32_t seed;
-};
-
-static inline float nodither(float x, struct dither_state *const ds, size_t const channel, float const scale) {
+static inline float thru_dither(float x, struct dither *const ds, size_t const channel, float const scale) {
   (void)ds;
   (void)channel;
   return x * scale;
 }
 
-static inline float dither(float x, struct dither_state *const ds, size_t const channel, float const scale) {
-  uint32_t const seed = ds->seed;
-  float const d = (float)(ov_splitmix32(seed)) * (1.f / (float)(UINT32_MAX)) - 0.5f;
-  float const thr = 0.000000063095734f; // -144db
-  if (fabsf(x) > thr) {
-    float const noise = d - ds->ptr[channel];
-    x = x * (scale - 1.f) + noise;
-  } else {
-    x = x * scale;
-  }
-  ds->ptr[channel] = d;
-  ds->seed = ov_splitmix32_next(seed);
-  return x;
+static inline float add_dither(float x, struct dither *const ds, size_t const channel, float const scale) {
+  return dither_process(x, ds, channel, scale);
 }
 
 static inline float clip_hard(float x) {
@@ -207,20 +191,20 @@ static inline float clip_soft(float x) {
 
 static inline void float_to_interleaved_int16_generic(int16_t *restrict const dest,
                                                       float const *restrict const *const src,
-                                                      struct dither_state *const ds,
+                                                      struct dither *const ds,
                                                       size_t const channels,
                                                       size_t const samples) {
   static float const m = 32767.f;
   if (ds) {
     for (size_t i = 0; i < samples; ++i) {
       for (size_t ch = 0; ch < channels; ++ch) {
-        dest[i * channels + ch] = (int16_t)(dither(clip_hard(src[ch][i]), ds, i, m));
+        dest[i * channels + ch] = (int16_t)(add_dither(clip_hard(src[ch][i]), ds, i, m));
       }
     }
   } else {
     for (size_t i = 0; i < samples; ++i) {
       for (size_t ch = 0; ch < channels; ++ch) {
-        dest[i * channels + ch] = (int16_t)(nodither(clip_hard(src[ch][i]), ds, i, m));
+        dest[i * channels + ch] = (int16_t)(thru_dither(clip_hard(src[ch][i]), ds, i, m));
       }
     }
   }
@@ -228,7 +212,7 @@ static inline void float_to_interleaved_int16_generic(int16_t *restrict const de
 
 static inline void float_to_interleaved_int16_stereo(int16_t *restrict const dest,
                                                      float const *restrict const *const src,
-                                                     struct dither_state *const ds,
+                                                     struct dither *const ds,
                                                      size_t const samples) {
   float const *restrict sp0 = src[0];
   float const *restrict sp1 = src[1];
@@ -236,38 +220,38 @@ static inline void float_to_interleaved_int16_stereo(int16_t *restrict const des
   static float const m = 32767.f;
   if (ds) {
     for (size_t i = 0; i < samples; ++i) {
-      dp[i * 2 + 0] = (int16_t)(dither(clip_hard(sp0[i]), ds, 0, m));
-      dp[i * 2 + 1] = (int16_t)(dither(clip_hard(sp1[i]), ds, 1, m));
+      dp[i * 2 + 0] = (int16_t)(add_dither(clip_hard(sp0[i]), ds, 0, m));
+      dp[i * 2 + 1] = (int16_t)(add_dither(clip_hard(sp1[i]), ds, 1, m));
     }
   } else {
     for (size_t i = 0; i < samples; ++i) {
-      dp[i * 2 + 0] = (int16_t)(nodither(clip_hard(sp0[i]), ds, 0, m));
-      dp[i * 2 + 1] = (int16_t)(nodither(clip_hard(sp1[i]), ds, 1, m));
+      dp[i * 2 + 0] = (int16_t)(thru_dither(clip_hard(sp0[i]), ds, 0, m));
+      dp[i * 2 + 1] = (int16_t)(thru_dither(clip_hard(sp1[i]), ds, 1, m));
     }
   }
 }
 
 static inline void float_to_interleaved_int16_mono(int16_t *restrict const dest,
                                                    float const *restrict const *const src,
-                                                   struct dither_state *const ds,
+                                                   struct dither *const ds,
                                                    size_t const samples) {
   float const *restrict sp0 = src[0];
   int16_t *restrict const dp = dest;
   static float const m = 32767.f;
   if (ds) {
     for (size_t i = 0; i < samples; ++i) {
-      dp[i] = (int16_t)(dither(clip_hard(sp0[i]), ds, 0, m));
+      dp[i] = (int16_t)(add_dither(clip_hard(sp0[i]), ds, 0, m));
     }
   } else {
     for (size_t i = 0; i < samples; ++i) {
-      dp[i] = (int16_t)(nodither(clip_hard(sp0[i]), ds, 0, m));
+      dp[i] = (int16_t)(thru_dither(clip_hard(sp0[i]), ds, 0, m));
     }
   }
 }
 
 static inline void float_to_interleaved_int16(int16_t *restrict const dest,
                                               float const *restrict const *const src,
-                                              struct dither_state *const ds,
+                                              struct dither *const ds,
                                               size_t const channels,
                                               size_t const samples) {
   switch (channels) {
