@@ -331,7 +331,7 @@ static BOOL wndproc_exit(HWND window) {
     if (g_params_label) {
       SendMessageW(g_params_label, WM_SETFONT, 0, 0);
     }
-    CloseHandle(g_font);
+    DeleteObject(g_font);
     g_font = NULL;
   }
   return FALSE;
