@@ -82,12 +82,7 @@ NODISCARD error mixer_destroy(struct mixer **const mp) {
   }
   ereport(channel_list_destroy(&m->cl));
   ereport(aux_channel_list_destroy(&m->acl));
-  array2d_release(&m->subbuf);
-  array2d_release(&m->auxbuf);
-  array2d_release(&m->chbuf);
-  array2d_release(&m->mixbuf);
-  ereport(dither_destroy(&m->dither));
-
+  release_buffer(m);
   ereport(mem_free(mp));
   return eok();
 }
@@ -153,8 +148,6 @@ NODISCARD error mixer_create(struct mixer **const mp) {
   dynamics_set_release(m->limiter, 0.8f); // 134 msec
   dynamics_set_output(m->limiter, 0.f);
   dynamics_set_limiter(m->limiter, 0.7f);
-  dynamics_set_format(m->limiter, 48000.f, 2);
-  dynamics_update_internal_parameter(m->limiter, NULL);
 
   err = channel_list_create(&m->cl);
   if (efailed(err)) {
@@ -171,6 +164,12 @@ NODISCARD error mixer_create(struct mixer **const mp) {
   channel_list_set_notify_callback(m->cl, channel_notify);
   aux_channel_list_set_userdata(m->acl, m);
   aux_channel_list_set_notify_callback(m->acl, aux_channel_notify);
+
+  err = mixer_set_format(m, 48000.f, 2, 480);
+  if (efailed(err)) {
+    err = ethru(err);
+    goto cleanup;
+  }
 
 cleanup:
   if (efailed(err)) {
