@@ -40,13 +40,16 @@ static BOOL jumped(FILTER *fp, FILTER_PROC_INFO *fpip) {
       (int)(mixer_get_warming_up_duration(g_mixer) * mixer_get_sample_rate(g_mixer)) / fpip->audio_n + 1;
   mixer_set_warming(g_mixer, true);
   for (int i = maxi(0, fpip->frame - warming_up_frames); i < fpip->frame; ++i) {
-    fp->exfunc->get_audio_filtered(fpip->editp, i, g_warming_buffer);
+    int const written = fp->exfunc->get_audio_filtering(fp, fpip->editp, i, g_warming_buffer);
+    mixer_mix(g_mixer, g_warming_buffer, (size_t)written);
   }
   mixer_set_warming(g_mixer, false);
 
   // overwrite current buffer
   g_last_frame = fpip->frame - 1;
-  fp->exfunc->get_audio_filtered(fpip->editp, fpip->frame, fpip->audiop);
+  int const written = fp->exfunc->get_audio_filtering(fp, fpip->editp, fpip->frame, g_warming_buffer);
+  memcpy(fpip->audiop, g_warming_buffer, (size_t)(written * fpip->audio_ch) * sizeof(int16_t));
+  mixer_mix(g_mixer, fpip->audiop, (size_t)written);
   return TRUE;
 }
 
@@ -130,8 +133,10 @@ NODISCARD static error set_current_format(void) {
   if (fcmp(sample_rate, ==, mixer_get_sample_rate(g_mixer), 1e-6f) && channels == mixer_get_channels(g_mixer)) {
     goto cleanup;
   }
-  static size_t const padding = 32; // failsafe
-  size_t const samples_per_frame = (size_t)((fi.audio_rate * fi.video_scale) / fi.video_rate) + padding;
+  // It seems that AviUtl sometimes writes to a buffer of two or more frames instead of one.
+  // If the buffer size is reserved just below the required buffer size, it will result in buffer overrun.
+  // To avoid this problem, reserve a larger buffer size.
+  size_t const samples_per_frame = (size_t)((fi.audio_rate * fi.video_scale * 5) / (fi.video_rate * 2)) + 32;
 
   if (g_warming_buffer) {
     ereport(mem_aligned_free(&g_warming_buffer));
@@ -439,7 +444,15 @@ filter_wndproc_channel_strip(HWND window, UINT message, WPARAM wparam, LPARAM lp
     r = wndproc_exit(window);
     aviutl_set_pointers(NULL, NULL);
     break;
+  case WM_FILTER_UPDATE:
+    ereport(set_current_format());
+    aviutl_set_pointers(NULL, NULL);
+    break;
   case WM_FILTER_FILE_OPEN:
+    ereport(set_current_format());
+    aviutl_set_pointers(NULL, NULL);
+    break;
+  case WM_FILTER_FILE_UPDATE:
     ereport(set_current_format());
     aviutl_set_pointers(NULL, NULL);
     break;

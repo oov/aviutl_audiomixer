@@ -165,7 +165,7 @@ NODISCARD error mixer_create(struct mixer **const mp) {
   aux_channel_list_set_userdata(m->acl, m);
   aux_channel_list_set_notify_callback(m->acl, aux_channel_notify);
 
-  err = mixer_set_format(m, 48000.f, 2, 480);
+  err = mixer_set_format(m, 1.f, 1, 16);
   if (efailed(err)) {
     err = ethru(err);
     goto cleanup;
