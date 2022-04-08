@@ -125,6 +125,10 @@ NODISCARD static error set_current_format(void) {
   FILE_INFO fi = {0};
   error err = aviutl_get_editing_file_info(&fi);
   if (efailed(err)) {
+    if (eis(err, err_type_axr, err_axr_project_is_not_open)) {
+      efree(&err);
+      goto cleanup;
+    }
     err = ethru(err);
     goto cleanup;
   }
