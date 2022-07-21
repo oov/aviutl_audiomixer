@@ -46,10 +46,10 @@ static BOOL jumped(FILTER *fp, FILTER_PROC_INFO *fpip) {
   mixer_set_warming(g_mixer, false);
 
   // overwrite current buffer
-  g_last_frame = fpip->frame - 1;
   int const written = fp->exfunc->get_audio_filtering(fp, fpip->editp, fpip->frame, g_warming_buffer);
   memcpy(fpip->audiop, g_warming_buffer, (size_t)(written * fpip->audio_ch) * sizeof(int16_t));
   mixer_mix(g_mixer, fpip->audiop, (size_t)written);
+  g_last_frame = fpip->frame;
   return TRUE;
 }
 
