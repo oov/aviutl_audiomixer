@@ -4,12 +4,6 @@
 
 #include <math.h>
 
-#ifdef __GNUC__
-#  if __has_warning("-Wpadded")
-#    pragma GCC diagnostic ignored "-Wpadded"
-#  endif
-#endif // __GNUC__
-
 static void f(int16_t v) { (void)v; }
 
 __declspec(noinline) static void float_to_interleaved_int16_1(int16_t *restrict const dest,

@@ -6,12 +6,6 @@
 
 #include "mixer.h"
 
-#ifdef __GNUC__
-#  if __has_warning("-Wpadded")
-#    pragma GCC diagnostic ignored "-Wpadded"
-#  endif
-#endif // __GNUC__
-
 struct entry {
   int id;
   HANDLE h;

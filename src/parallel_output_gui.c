@@ -10,12 +10,6 @@
 #include "error_axr.h"
 #include "parallel_output.h"
 
-#ifdef __GNUC__
-#  if __has_warning("-Wpadded")
-#    pragma GCC diagnostic ignored "-Wpadded"
-#  endif
-#endif // __GNUC__
-
 NODISCARD static error show_save_dialog(HWND const owner,
                                         struct wstr const *const title,
                                         struct wstr const *const default_filename,

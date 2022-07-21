@@ -4,12 +4,6 @@
 
 #include "inlines.h"
 
-#ifdef __GNUC__
-#  if __has_warning("-Wpadded")
-#    pragma GCC diagnostic ignored "-Wpadded"
-#  endif
-#endif // __GNUC__
-
 static void test_create_destroy(void) {
   struct circbuffer_i16 *c = NULL;
   TEST_SUCCEEDED_F(circbuffer_i16_create(&c));
