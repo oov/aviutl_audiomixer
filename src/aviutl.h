@@ -31,6 +31,7 @@ NODISCARD error aviutl_exit(void);
 NODISCARD error aviutl_exedit_is_enpatched(bool *const enpatched);
 NODISCARD error aviutl_get_exedit_window(HWND *const h);
 NODISCARD HWND aviutl_get_exedit_window_must(void);
+NODISCARD FILTER *aviutl_get_exedit_audio_filter(void);
 NODISCARD error aviutl_get_my_window(HWND *const h);
 NODISCARD HWND aviutl_get_my_window_must(void);
 

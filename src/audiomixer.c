@@ -31,35 +31,59 @@ static UINT_PTR g_view_update_timer_id = 0;
 static int g_selected_id = 0;
 static bool g_need_update_view = false;
 static bool g_saving = false;
+static bool g_processing = false;
+
+static BOOL (*g_exedit_audio_filter_proc)(FILTER *fp, FILTER_PROC_INFO *fpip) = NULL;
 
 static BOOL jumped(FILTER *fp, FILTER_PROC_INFO *fpip) {
   mixer_reset(g_mixer);
+  int const frame = fpip->frame;
+  int const audio_n = fpip->audio_n;
+  short *audiop = fpip->audiop;
 
   // load recent frames to avoid audio glitch
   int const warming_up_frames =
       (int)(mixer_get_warming_up_duration(g_mixer) * mixer_get_sample_rate(g_mixer)) / fpip->audio_n + 1;
+  fpip->audiop = g_warming_buffer;
   mixer_set_warming(g_mixer, true);
-  for (int i = maxi(0, fpip->frame - warming_up_frames); i < fpip->frame; ++i) {
+  for (int i = maxi(0, frame - warming_up_frames); i < frame; ++i) {
     int const written = fp->exfunc->get_audio_filtering(fp, fpip->editp, i, g_warming_buffer);
+    fpip->frame = i;
+    fpip->audio_n = written;
+    g_processing = true;
+    g_exedit_audio_filter_proc(fp, fpip);
+    g_processing = false;
     mixer_mix(g_mixer, g_warming_buffer, (size_t)written);
   }
   mixer_set_warming(g_mixer, false);
 
   // overwrite current buffer
-  int const written = fp->exfunc->get_audio_filtering(fp, fpip->editp, fpip->frame, g_warming_buffer);
-  memcpy(fpip->audiop, g_warming_buffer, (size_t)(written * fpip->audio_ch) * sizeof(int16_t));
-  mixer_mix(g_mixer, fpip->audiop, (size_t)written);
-  g_last_frame = fpip->frame;
+  fpip->frame = frame;
+  fpip->audio_n = audio_n;
+  fpip->audiop = audiop;
+  fp->exfunc->get_audio_filtering(fp, fpip->editp, frame, fpip->audiop);
+
+  g_processing = true;
+  g_exedit_audio_filter_proc(fp, fpip);
+  g_processing = false;
+  mixer_mix(g_mixer, fpip->audiop, (size_t)fpip->audio_n);
+  g_last_frame = frame;
   return TRUE;
 }
 
-static BOOL filter_proc_master(FILTER *fp, FILTER_PROC_INFO *fpip) {
+static BOOL filter_proc(FILTER *fp, FILTER_PROC_INFO *fpip) {
+  if (!g_exedit_audio_filter_proc) {
+    return TRUE;
+  }
+
   aviutl_set_pointers(fp, fpip->editp);
 
   if (!mixer_get_warming(g_mixer) && (g_last_frame + 1 != fpip->frame)) {
     return jumped(fp, fpip);
   }
-
+  g_processing = true;
+  g_exedit_audio_filter_proc(fp, fpip);
+  g_processing = false;
   mixer_mix(g_mixer, fpip->audiop, (size_t)fpip->audio_n);
   g_last_frame = fpip->frame;
   return TRUE;
@@ -78,6 +102,10 @@ static inline float slider_to_db(int v) {
 }
 
 static BOOL filter_proc_channel_strip(FILTER *fp, FILTER_PROC_INFO *fpip) {
+  if (!g_processing) {
+    return TRUE;
+  }
+
   aviutl_set_pointers(fp, fpip->editp);
   int const id = fp->track[0];
   if (id == -1) {
@@ -163,6 +191,10 @@ cleanup:
 }
 
 static BOOL filter_proc_aux1(FILTER *fp, FILTER_PROC_INFO *fpip) {
+  if (!g_processing) {
+    return TRUE;
+  }
+
   aviutl_set_pointers(fp, fpip->editp);
   if ((size_t)fpip->audio_ch != mixer_get_channels(g_mixer)) {
     // The number of channels, etc., may be changed when using "音声読み込み",
@@ -230,6 +262,11 @@ static BOOL filter_init(FILTER *fp) {
   if (efailed(err)) {
     err = ethru(err);
     goto cleanup;
+  }
+  FILTER *afp = aviutl_get_exedit_audio_filter();
+  if (afp) {
+    g_exedit_audio_filter_proc = (BOOL(*)(FILTER * fp, FILTER_PROC_INFO * fpip)) afp->func_proc;
+    afp->func_proc = (BOOL(*)(void *fp, FILTER_PROC_INFO *fpip))filter_proc;
   }
 cleanup:
   if (efailed(err)) {
@@ -543,16 +580,6 @@ static FILTER_DLL g_aux1_channel_strip_filter_dll = {
     .track_s = (int[]){-1, 0, 0, 0, 0, 0, 0, -10000},
     .track_e = (int[]){100, 10000, 10000, 10000, 10000, 10000, 10000, 0},
     .func_proc = filter_proc_aux1,
-};
-
-#define MASTER_NAME_MBCS "\x83\x7D\x83\x58\x83\x5E\x81\x5B" // マスター
-static FILTER_DLL g_master_channel_strip_filter_dll = {
-    // FILTER_FLAG_RADIO_BUTTON is not necessary for the operation,
-    // but it is necessary to hide the item from ExEdit's menu.
-    .flag = FILTER_FLAG_PRIORITY_LOWEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER | FILTER_FLAG_NO_CONFIG |
-            FILTER_FLAG_RADIO_BUTTON,
-    .name = CHANNEL_STRIP_NAME_MBCS " - " MASTER_NAME_MBCS,
-    .func_proc = filter_proc_master,
 };
 
 struct paraout_params {
@@ -942,11 +969,12 @@ static FILTER_DLL g_parallel_output_filter_dll = {
 
 FILTER_DLL __declspec(dllexport) * *__stdcall GetFilterTableList(void);
 FILTER_DLL __declspec(dllexport) * *__stdcall GetFilterTableList(void) {
-  static FILTER_DLL *filter_list[] = {&g_channel_strip_filter_dll,
-                                      &g_aux1_channel_strip_filter_dll,
-                                      &g_master_channel_strip_filter_dll,
-                                      &g_parallel_output_filter_dll,
-                                      NULL};
+  static FILTER_DLL *filter_list[] = {
+      &g_channel_strip_filter_dll,
+      &g_aux1_channel_strip_filter_dll,
+      &g_parallel_output_filter_dll,
+      NULL,
+  };
   return (FILTER_DLL **)&filter_list;
 }
 
