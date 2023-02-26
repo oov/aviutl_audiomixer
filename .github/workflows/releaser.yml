@@ -14,8 +14,8 @@ jobs:
     strategy:
       matrix:
         include:
-          - msystem: MINGW32
-            arch: i686
+          - msystem: CLANG32
+            arch: clang-i686
     steps:
       - uses: actions/checkout@v3
         with:
