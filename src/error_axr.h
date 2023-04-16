@@ -18,6 +18,11 @@ enum err_axr {
   err_axr_wav_size_limit_exceeded = 201,
 };
 
-NODISCARD error error_axr_init(void);
+NODISCARD error axr_error_message(int const type, int const code, struct NATIVE_STR *const dest);
 
-void error_message_box(error e, HWND const window, wchar_t const *const msg);
+NODISCARD error axr_error_vformat(
+    error e, struct wstr *const dest, wchar_t const *const reference, char const *const format, va_list valist);
+NODISCARD error
+axr_error_format(error e, struct wstr *const dest, wchar_t const *const reference, char const *const format, ...);
+void axr_error_message_box(
+    error e, HWND const window, char const *const title, wchar_t const *const reference, char const *const format, ...);

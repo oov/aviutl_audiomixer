@@ -8,6 +8,7 @@
 #include "ovutil/str.h"
 
 #include "error_axr.h"
+#include "i18n.h"
 #include "parallel_output.h"
 
 NODISCARD static error show_save_dialog(HWND const owner,
@@ -35,7 +36,7 @@ NODISCARD static error show_save_dialog(HWND const owner,
       .hInstance = get_hinstance(),
       .hwndOwner = owner,
       .lpstrTitle = title->ptr,
-      .lpstrFilter = L"Wave ファイル(*.wav)\0*.wav\0",
+      .lpstrFilter = L"Wave File(*.wav)\0*.wav\0",
       .nFilterIndex = 1,
       .lpstrDefExt = L"wav",
       .lpstrFile = tmp.ptr,
@@ -194,6 +195,17 @@ static void enable_controls(HWND const window, WINBOOL b) {
   EnableWindow(GetDlgItem(window, IDABORT), !b);
 }
 
+static void send_message_i18n(HWND const window, UINT msg, char const *const text) {
+  struct wstr ws = {0};
+  error err = to_wstr(&str_unmanaged_const(text), &ws);
+  if (efailed(err)) {
+    ereport(err);
+    return;
+  }
+  SendMessageW(window, msg, 0, (LPARAM)ws.ptr);
+  ereport(sfree(&ws));
+}
+
 static BOOL wndproc_init_dialog(HWND const window, struct parallel_output_dialog *const dlg) {
   struct wstr ws = {0};
   error err = eok();
@@ -205,6 +217,31 @@ static BOOL wndproc_init_dialog(HWND const window, struct parallel_output_dialog
     err = errhr(HRESULT_FROM_WIN32(GetLastError()));
     goto cleanup;
   }
+
+  SYS_INFO si = {0};
+  err = aviutl_get_sys_info(&si);
+  if (efailed(err)) {
+    err = ethru(err);
+    goto cleanup;
+  }
+  SendMessageW(GetDlgItem(window, IDOK), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, IDABORT), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_LBL_SAVE_PATH), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_EDT_SAVE_PATH), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_BTN_SAVE_PATH), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_LBL_FORMAT), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_CMB_FORMAT), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_CHK_EXPORT_OTHER), WM_SETFONT, (WPARAM)si.hfont, 0);
+  SendMessageW(GetDlgItem(window, ID_LBL_PROGRESS), WM_SETFONT, (WPARAM)si.hfont, 0);
+
+  send_message_i18n(window, WM_SETTEXT, gettext("ParallelOutput - ChannelStrip"));
+  send_message_i18n(GetDlgItem(window, IDOK), WM_SETTEXT, gettext("Export"));
+  send_message_i18n(GetDlgItem(window, IDABORT), WM_SETTEXT, gettext("Abort"));
+  send_message_i18n(GetDlgItem(window, ID_LBL_SAVE_PATH), WM_SETTEXT, gettext("Destination"));
+  send_message_i18n(GetDlgItem(window, ID_LBL_FORMAT), WM_SETTEXT, gettext("Bit Depth"));
+  send_message_i18n(
+      GetDlgItem(window, ID_CHK_EXPORT_OTHER), WM_SETTEXT, gettext("Save audio not managed by ChannelStrip"));
+
   err = scpy(&ws, dlg->options->filename.ptr ? dlg->options->filename.ptr : L"");
   if (efailed(err)) {
     err = ethru(err);
@@ -221,8 +258,8 @@ static BOOL wndproc_init_dialog(HWND const window, struct parallel_output_dialog
 
   {
     HWND const h = GetDlgItem(window, ID_CMB_FORMAT);
-    SendMessageW(h, CB_ADDSTRING, 0, (LPARAM)L"16bit");
-    SendMessageW(h, CB_ADDSTRING, 0, (LPARAM)L"32bit float（推奨）");
+    send_message_i18n(h, CB_ADDSTRING, gettext("16Bit"));
+    send_message_i18n(h, CB_ADDSTRING, gettext("32Bit Float (Recommended)"));
     WPARAM idx = 1;
     switch (dlg->options->bit_format) {
     case parallel_output_bit_format_int16:
@@ -264,9 +301,16 @@ static void send_progress(struct parallel_output_gui_context const *const ctx, i
   PostMessageW(ctxi->window, WM_PROGRESS, (WPARAM)percent, 0);
 }
 
-static void send_progress_text(struct parallel_output_gui_context const *const ctx, struct wstr const *const text) {
+static void send_progress_text(struct parallel_output_gui_context const *const ctx, char const *const text) {
   struct parallel_output_gui_context_internal const *const ctxi = (void const *)ctx;
-  SendMessageW(GetDlgItem(ctxi->window, ID_LBL_PROGRESS), WM_SETTEXT, 0, (LPARAM)text->ptr);
+  struct wstr ws = {0};
+  error err = to_wstr(&str_unmanaged_const(text), &ws);
+  if (efailed(err)) {
+    ereport(err);
+  } else {
+    SendMessageW(GetDlgItem(ctxi->window, ID_LBL_PROGRESS), WM_SETTEXT, 0, (LPARAM)ws.ptr);
+    ereport(sfree(&ws));
+  }
 }
 
 static BOOL start_export(HWND const window) {
@@ -319,7 +363,7 @@ cleanup:
       ereport(sfree(&dlg->ctxi->pub.options.filename));
       ereport(mem_free(&dlg->ctxi));
     }
-    error_message_box(err, window, L"エクスポートが開始できませんでした。");
+    axr_error_message_box(err, window, gettext("Error"), NULL, "%1$s", gettext("Export could not be started."));
   }
   return TRUE;
 }
@@ -334,7 +378,7 @@ static BOOL abort_export(HWND const window) {
   atomic_store_explicit(&dlg->ctxi->cancel_requested, true, memory_order_relaxed);
 cleanup:
   if (efailed(err)) {
-    ereportmsg(err, &native_unmanaged_const(NSTR("エクスポートの中断に失敗しました。")));
+    ereportmsg_i18n(err, gettext("Failed to abort export."));
   }
   return TRUE;
 }
@@ -361,7 +405,7 @@ cleanup:
   ereport(sfree(&dlg->ctxi->pub.options.filename));
   ereport(mem_free(&dlg->ctxi));
   if (efailed(err)) {
-    error_message_box(err, window, L"エクスポートを完了できませんでした。");
+    axr_error_message_box(err, window, gettext("Error"), NULL, "%1$s", gettext("Export could not be completed."));
   }
   enable_controls(window, TRUE);
   SendMessageW(GetDlgItem(window, ID_PROGRESS), PBM_SETPOS, 0, 0);
@@ -374,10 +418,23 @@ static BOOL closing(HWND const window) {
     EndDialog(window, IDCANCEL);
     return TRUE;
   }
-  if (message_box(window,
-                  L"パラアウトはまだ完了していません。\r\n中断しますか？",
-                  L"チャンネルストリップ - パラアウト",
-                  MB_ICONQUESTION | MB_OKCANCEL) == IDCANCEL) {
+  struct wstr title = {0};
+  struct wstr msg = {0};
+  error err = to_wstr(&str_unmanaged_const(gettext("Confirm")), &title);
+  if (efailed(err)) {
+    ereport(err);
+  }
+  err = to_wstr(&str_unmanaged_const(gettext("Export is not yet complete.\nDo you really want to abort?")), &msg);
+  if (efailed(err)) {
+    ereport(err);
+  }
+  int const r = message_box(window,
+                            msg.ptr ? msg.ptr : L"Export is not yet complete.\nDo you really want to abort?",
+                            title.ptr ? title.ptr : L"Confirm",
+                            MB_ICONQUESTION | MB_OKCANCEL);
+  ereport(sfree(&msg));
+  ereport(sfree(&title));
+  if (r == IDCANCEL) {
     return TRUE;
   }
   // The export process is running in the background,
@@ -390,6 +447,7 @@ static BOOL closing(HWND const window) {
 }
 
 NODISCARD static BOOL select_parallel_output_file(HWND const window) {
+  struct wstr title = {0};
   struct wstr tmp = {0};
   error err = eok();
   struct parallel_output_dialog *const dlg = (void *)GetPropW(window, parallel_output_dialog_prop);
@@ -408,7 +466,12 @@ NODISCARD static BOOL select_parallel_output_file(HWND const window) {
     err = ethru(err);
     goto cleanup;
   }
-  err = show_save_dialog(window, &wstr_unmanaged_const(L"出力先を選択してください"), &tmp, &tmp);
+  err = to_wstr(&str_unmanaged_const(gettext("Choose where to save file")), &title);
+  if (efailed(err)) {
+    err = ethru(err);
+    goto cleanup;
+  }
+  err = show_save_dialog(window, &title, &tmp, &tmp);
   restore_disabled_family_windows(disabled_windows);
   if (efailed(err)) {
     if (eis(err, err_type_generic, err_abort)) {
@@ -421,8 +484,10 @@ NODISCARD static BOOL select_parallel_output_file(HWND const window) {
   SetWindowTextW(GetDlgItem(window, ID_EDT_SAVE_PATH), tmp.ptr);
 cleanup:
   ereport(sfree(&tmp));
+  ereport(sfree(&title));
   if (efailed(err)) {
-    error_message_box(err, window, L"ファイル選択ダイアログの表示に失敗しました。");
+    axr_error_message_box(
+        err, window, gettext("Error"), NULL, "%1$s", gettext("Failed to display file selection dialog."));
   }
   return TRUE;
 }

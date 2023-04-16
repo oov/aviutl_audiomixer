@@ -12,6 +12,7 @@
 #include "aviutl.h"
 #include "dynamics.h"
 #include "error_axr.h"
+#include "i18n.h"
 #include "inlines.h"
 #include "mixer.h"
 #include "parallel_output.h"
@@ -265,8 +266,8 @@ static BOOL filter_init(FILTER *fp) {
   }
   FILTER *afp = aviutl_get_exedit_audio_filter();
   if (afp) {
-    g_exedit_audio_filter_proc = (BOOL(*)(FILTER * fp, FILTER_PROC_INFO * fpip)) afp->func_proc;
-    afp->func_proc = (BOOL(*)(void *fp, FILTER_PROC_INFO *fpip))filter_proc;
+    g_exedit_audio_filter_proc = (BOOL(*)(FILTER * fp, FILTER_PROC_INFO * fpip))(void *)afp->func_proc;
+    afp->func_proc = (BOOL(*)(void *fp, FILTER_PROC_INFO *fpip))(void *)filter_proc;
   }
 cleanup:
   if (efailed(err)) {
@@ -471,6 +472,8 @@ cleanup:
 
 static BOOL
 filter_wndproc_channel_strip(HWND window, UINT message, WPARAM wparam, LPARAM lparam, void *editp, FILTER *fp) {
+  static int instances = 0;
+  static struct mo *mp = NULL;
   aviutl_set_pointers(fp, editp);
   (void)lparam;
   (void)wparam;
@@ -478,12 +481,24 @@ filter_wndproc_channel_strip(HWND window, UINT message, WPARAM wparam, LPARAM lp
   BOOL r = FALSE;
   switch (message) {
   case WM_FILTER_INIT:
+    if (++instances == 1) {
+      error err = mo_parse_from_resource(&mp, get_hinstance());
+      if (efailed(err)) {
+        ereport(err);
+      } else {
+        mo_set_default(mp);
+      }
+    }
     r = wndproc_init(window);
     aviutl_set_pointers(NULL, NULL);
     break;
   case WM_FILTER_EXIT:
     r = wndproc_exit(window);
     aviutl_set_pointers(NULL, NULL);
+    if (--instances == 0) {
+      mo_set_default(NULL);
+      mo_free(&mp);
+    }
     break;
   case WM_FILTER_UPDATE:
     ereport(set_current_format());
@@ -532,56 +547,6 @@ filter_wndproc_channel_strip(HWND window, UINT message, WPARAM wparam, LPARAM lp
   return r;
 }
 
-// チャンネルストリップ
-#define CHANNEL_STRIP_NAME_MBCS "\x83\x60\x83\x83\x83\x93\x83\x6C\x83\x8B\x83\x58\x83\x67\x83\x8A\x83\x62\x83\x76"
-static FILTER_DLL g_channel_strip_filter_dll = {
-    .flag = FILTER_FLAG_PRIORITY_LOWEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER |
-            FILTER_FLAG_WINDOW_SIZE | FILTER_FLAG_EX_INFORMATION,
-    .x = 240 | FILTER_WINDOW_SIZE_CLIENT,
-    .y = 540 | FILTER_WINDOW_SIZE_CLIENT,
-    .name = CHANNEL_STRIP_NAME_MBCS,
-    .information = CHANNEL_STRIP_NAME_MBCS " " VERSION,
-    .track_n = 15,
-    .track_name =
-        (TCHAR *[]){
-            "ID",
-            "\x93\xFC\x97\xCD\x89\xB9\x97\xCA" /* 入力音量 */,
-            "\x92\x78\x89\x84" /* 遅延 */,
-            "EQ LoFreq",
-            "EQ LoGain",
-            "EQ HiFreq",
-            "EQ HiGain",
-            "C Thresh",
-            "C Ratio",
-            "C Attack",
-            "C Release",
-            "Aux ID",
-            "Aux Send",
-            "\x8F\x6F\x97\xCD\x89\xB9\x97\xCA" /* 出力音量 */,
-            "\x8D\xB6\x89\x45" /* 左右 */,
-        },
-    .track_default = (int[]){-1, 0, 0, 200, 0, 3000, 0, 6000, 0, 1800, 5500, -1, -10000, 0, 0},
-    .track_s = (int[]){-1, -10000, 0, 1, -10000, 1, -10000, 0, 0, 0, 0, -1, -10000, -10000, -10000},
-    .track_e =
-        (int[]){100, 10000, 500, 24000, 10000, 24000, 10000, 10000, 10000, 10000, 10000, 100, 10000, 10000, 10000},
-    .func_proc = filter_proc_channel_strip,
-    .func_init = filter_init,
-    .func_exit = filter_exit,
-    .func_WndProc = filter_wndproc_channel_strip,
-};
-
-#define AUX1_NAME_MBCS "Aux"
-static FILTER_DLL g_aux1_channel_strip_filter_dll = {
-    .flag = FILTER_FLAG_PRIORITY_HIGHEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER | FILTER_FLAG_NO_CONFIG,
-    .name = CHANNEL_STRIP_NAME_MBCS " - " AUX1_NAME_MBCS,
-    .track_n = 8,
-    .track_name = (TCHAR *[]){"ID", "R PreDly", "R LPF", "R Diffuse", "R Decay", "R Damping", "R Excursion", "R Wet"},
-    .track_default = (int[]){-1, 0, 10000, 10000, 5000, 50, 5000, 0},
-    .track_s = (int[]){-1, 0, 0, 0, 0, 0, 0, -10000},
-    .track_e = (int[]){100, 10000, 10000, 10000, 10000, 10000, 10000, 0},
-    .func_proc = filter_proc_aux1,
-};
-
 struct paraout_params {
   FILTER *fp;
   void *editp;
@@ -619,7 +584,7 @@ static void output_notify(void *const userdata,
 
 static int paraout_thread(void *userdata) {
   error err = eok();
-  struct wstr progress_text = {0};
+  struct str progress_text = {0};
   struct paraout_params *pp = NULL;
   struct parallel_output *po = NULL;
   struct parallel_output_gui_context *ctx = userdata;
@@ -689,17 +654,11 @@ static int paraout_thread(void *userdata) {
     }
     new_tick = GetTickCount();
     if (tick + 200 < new_tick || new_tick < tick) {
-      wchar_t n1[32], n2[32], n3[32];
-      err = scpym(&progress_text,
-                  ov_utoa((uint64_t)prg, n1),
-                  L"% ",
-                  ov_utoa((uint64_t)(i - s), n2),
-                  L" / ",
-                  ov_utoa((uint64_t)(e - s), n3));
+      err = ssprintf(&progress_text, NULL, "%1$d%% %2$d / %3$d", prg, i - s, e - s);
       if (efailed(err)) {
         ereport(err);
       } else {
-        ctx->progress_text_func(ctx, &progress_text);
+        ctx->progress_text_func(ctx, progress_text.ptr);
       }
       tick = new_tick;
     }
@@ -712,7 +671,7 @@ static int paraout_thread(void *userdata) {
     }
   } else {
     ctx->progress_func(ctx, 100);
-    ctx->progress_text_func(ctx, &wstr_unmanaged_const(L"ファイルの最終処理中..."));
+    ctx->progress_text_func(ctx, gettext("Finalizing..."));
     err = parallel_output_finalize(po, mixer_get_position(g_mixer));
     if (efailed(err)) {
       err = ethru(err);
@@ -808,7 +767,12 @@ filter_wndproc_parallel_output(HWND window, UINT message, WPARAM wparam, LPARAM 
                                              .editp = editp,
                                          });
     if (efailed(err)) {
-      error_message_box(err, aviutl_get_exedit_window_must(), L"処理中にエラーが発生しました。");
+      axr_error_message_box(err,
+                            aviutl_get_exedit_window_must(),
+                            gettext("Error"),
+                            NULL,
+                            "%1$s",
+                            gettext("An error occurred during processing."));
     }
     aviutl_set_pointers(NULL, NULL);
   } break;
@@ -956,25 +920,101 @@ static BOOL filter_exit_parallel_output(FILTER *fp) {
   return TRUE;
 }
 
-// パラアウト
-#define PARALLEL_OUTPUT_NAME_MBCS "\x83\x70\x83\x89\x83\x41\x83\x45\x83\x67"
-static FILTER_DLL g_parallel_output_filter_dll = {
-    .flag = FILTER_FLAG_PRIORITY_LOWEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_EXPORT | FILTER_FLAG_NO_CONFIG,
-    .name = CHANNEL_STRIP_NAME_MBCS " - " PARALLEL_OUTPUT_NAME_MBCS,
-    .func_exit = filter_exit_parallel_output,
-    .func_WndProc = filter_wndproc_parallel_output,
-    .func_project_load = filter_project_load_parallel_output,
-    .func_project_save = filter_project_save_parallel_output,
-};
-
 FILTER_DLL __declspec(dllexport) * *__stdcall GetFilterTableList(void);
 FILTER_DLL __declspec(dllexport) * *__stdcall GetFilterTableList(void) {
+  static TCHAR *channel_strip_track_names[] = {"ID",
+                                               NULL,
+                                               NULL,
+                                               "EQ LoFreq",
+                                               "EQ LoGain",
+                                               "EQ HiFreq",
+                                               "EQ HiGain",
+                                               "C Thresh",
+                                               "C Ratio",
+                                               "C Attack",
+                                               "C Release",
+                                               "Aux ID",
+                                               "Aux Send",
+                                               NULL,
+                                               NULL};
+  static int channel_strip_track_default[] = {-1, 0, 0, 200, 0, 3000, 0, 6000, 0, 1800, 5500, -1, -10000, 0, 0};
+  static int channel_strip_track_s[] = {-1, -10000, 0, 1, -10000, 1, -10000, 0, 0, 0, 0, -1, -10000, -10000, -10000};
+  static int channel_strip_track_e[] = {
+      100, 10000, 500, 24000, 10000, 24000, 10000, 10000, 10000, 10000, 10000, 100, 10000, 10000, 10000};
+  static FILTER_DLL channel_strip_filter_dll = {
+      .flag = FILTER_FLAG_PRIORITY_LOWEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER |
+              FILTER_FLAG_WINDOW_SIZE | FILTER_FLAG_EX_INFORMATION,
+      .x = 240 | FILTER_WINDOW_SIZE_CLIENT,
+      .y = 540 | FILTER_WINDOW_SIZE_CLIENT,
+      .track_n = 15,
+      .track_name = channel_strip_track_names,
+      .track_default = channel_strip_track_default,
+      .track_s = channel_strip_track_s,
+      .track_e = channel_strip_track_e,
+      .func_proc = filter_proc_channel_strip,
+      .func_init = filter_init,
+      .func_exit = filter_exit,
+      .func_WndProc = filter_wndproc_channel_strip,
+  };
+  static TCHAR *aux1_channel_strip_track_names[] = {
+      "ID", "R PreDly", "R LPF", "R Diffuse", "R Decay", "R Damping", "R Excursion", "R Wet"};
+  static int aux1_channel_strip_track_default[] = {-1, 0, 10000, 10000, 5000, 50, 5000, 0};
+  static int aux1_channel_strip_track_s[] = {-1, 0, 0, 0, 0, 0, 0, -10000};
+  static int aux1_channel_strip_track_e[] = {100, 10000, 10000, 10000, 10000, 10000, 10000, 0};
+  static FILTER_DLL aux1_channel_strip_filter_dll = {
+      .flag =
+          FILTER_FLAG_PRIORITY_HIGHEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_AUDIO_FILTER | FILTER_FLAG_NO_CONFIG,
+      .track_n = 8,
+      .track_name = aux1_channel_strip_track_names,
+      .track_default = aux1_channel_strip_track_default,
+      .track_s = aux1_channel_strip_track_s,
+      .track_e = aux1_channel_strip_track_e,
+      .func_proc = filter_proc_aux1,
+  };
+  static FILTER_DLL parallel_output_filter_dll = {
+      .flag = FILTER_FLAG_PRIORITY_LOWEST | FILTER_FLAG_ALWAYS_ACTIVE | FILTER_FLAG_EXPORT | FILTER_FLAG_NO_CONFIG,
+      .func_exit = filter_exit_parallel_output,
+      .func_WndProc = filter_wndproc_parallel_output,
+      .func_project_load = filter_project_load_parallel_output,
+      .func_project_save = filter_project_save_parallel_output,
+  };
   static FILTER_DLL *filter_list[] = {
-      &g_channel_strip_filter_dll,
-      &g_aux1_channel_strip_filter_dll,
-      &g_parallel_output_filter_dll,
+      &channel_strip_filter_dll,
+      &aux1_channel_strip_filter_dll,
+      &parallel_output_filter_dll,
       NULL,
   };
+  if (channel_strip_filter_dll.name == NULL) {
+    // It is preferable to use the same name in all languages,
+    // since these names also affects when saving settings, etc.
+    // But for backward compatibility, use the same name as before for Japanese code pages.
+    bool const sjis = GetACP() == 932;
+#define CHANNEL_STRIP_NAME "ChannelStrip"
+#define CHANNEL_STRIP_TRACK_NAME_1 "In Vol"
+#define CHANNEL_STRIP_TRACK_NAME_2 "Latency"
+#define CHANNEL_STRIP_TRACK_NAME_13 "Out Vol"
+#define CHANNEL_STRIP_TRACK_NAME_14 "Pan"
+#define AUX1_NAME "Aux"
+#define PARALLEL_OUTPUT_NAME "ParallelOutput"
+#define CHANNEL_STRIP_NAME_SJIS                                                                                        \
+  "\x83\x60\x83\x83\x83\x93\x83\x6C\x83\x8B\x83\x58\x83\x67\x83\x8A\x83\x62\x83\x76" /*チャンネルストリップ*/
+#define CHANNEL_STRIP_TRACK_NAME_1_SJIS "\x93\xFC\x97\xCD\x89\xB9\x97\xCA"           /*入力音量*/
+#define CHANNEL_STRIP_TRACK_NAME_2_SJIS "\x92\x78\x89\x84"                           /*遅延*/
+#define CHANNEL_STRIP_TRACK_NAME_13_SJIS "\x8F\x6F\x97\xCD\x89\xB9\x97\xCA"          /*出力音量*/
+#define CHANNEL_STRIP_TRACK_NAME_14_SJIS "\x8D\xB6\x89\x45"                          /*左右*/
+#define AUX1_NAME_SJIS "Aux"
+#define PARALLEL_OUTPUT_NAME_SJIS "\x83\x70\x83\x89\x83\x41\x83\x45\x83\x67" /*パラアウト*/
+    channel_strip_filter_dll.name = sjis ? CHANNEL_STRIP_NAME_SJIS : CHANNEL_STRIP_NAME;
+    channel_strip_filter_dll.information = sjis ? CHANNEL_STRIP_NAME_SJIS " " VERSION : CHANNEL_STRIP_NAME " " VERSION;
+    channel_strip_filter_dll.track_name[1] = sjis ? CHANNEL_STRIP_TRACK_NAME_1_SJIS : CHANNEL_STRIP_TRACK_NAME_1;
+    channel_strip_filter_dll.track_name[2] = sjis ? CHANNEL_STRIP_TRACK_NAME_2_SJIS : CHANNEL_STRIP_TRACK_NAME_2;
+    channel_strip_filter_dll.track_name[13] = sjis ? CHANNEL_STRIP_TRACK_NAME_13_SJIS : CHANNEL_STRIP_TRACK_NAME_13;
+    channel_strip_filter_dll.track_name[14] = sjis ? CHANNEL_STRIP_TRACK_NAME_14_SJIS : CHANNEL_STRIP_TRACK_NAME_14;
+    aux1_channel_strip_filter_dll.name =
+        sjis ? CHANNEL_STRIP_NAME_SJIS " - " AUX1_NAME_SJIS : CHANNEL_STRIP_NAME " - " AUX1_NAME;
+    parallel_output_filter_dll.name =
+        sjis ? CHANNEL_STRIP_NAME_SJIS " - " PARALLEL_OUTPUT_NAME_SJIS : CHANNEL_STRIP_NAME " - " PARALLEL_OUTPUT_NAME;
+  }
   return (FILTER_DLL **)&filter_list;
 }
 
@@ -1006,11 +1046,9 @@ cleanup:
 }
 
 static BOOL main_init(HINSTANCE const inst) {
-  if (!ov_init(generic_error_message_mapper_jp)) {
-    return FALSE;
-  }
-  error_register_reporter(error_reporter);
-  ereportmsg(error_axr_init(), &native_unmanaged(NSTR("エラーメッセージマッパーの登録に失敗しました。")));
+  ov_init();
+  error_set_message_mapper(axr_error_message);
+  error_set_reporter(error_reporter);
   set_hinstance(inst);
   return TRUE;
 }
@@ -1022,6 +1060,8 @@ static BOOL main_exit(void) {
 
 BOOL APIENTRY DllMain(HINSTANCE const inst, DWORD const reason, LPVOID const reserved);
 BOOL APIENTRY DllMain(HINSTANCE const inst, DWORD const reason, LPVOID const reserved) {
+  // trans: This dagger helps UTF-8 detection. You don't need to translate this.
+  (void)gettext_noop("†");
   (void)reserved;
   switch (reason) {
   case DLL_PROCESS_ATTACH:

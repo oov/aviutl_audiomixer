@@ -1,0 +1,157 @@
+# Japanese translations for GCMZDrops vX.X.X ( dfc4ea0 ) package.
+# Copyright (C) 2023 GCMZDrops Developers
+# This file is distributed under the same license as the GCMZDrops package.
+# Automatically generated, 2023.
+#
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: ja\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "16Bit"
+msgstr "16Bit"
+
+msgid "32Bit Float (Recommended)"
+msgstr "32Bit Float (推奨)"
+
+msgid "Abort"
+msgstr "中止"
+
+msgid "Aborted."
+msgstr "中断されました。"
+
+msgid "Advanced Editing plug-in exedit.auf cannot be found in the same folder as GCMZDrops.auf."
+msgstr "拡張編集プラグイン exedit.auf がごちゃまぜドロップス GCMZDrops.auf と同じフォルダー内に見つかりません。"
+
+msgid "Advanced Editing plug-in exedit.auf cannot be found."
+msgstr "拡張編集プラグイン exedit.auf が見つかりません。"
+
+msgid "An error occurred during processing."
+msgstr "処理中にエラーが発生しました。"
+
+msgid "AviUtl project file (*.aup) has not yet been opened."
+msgstr "AviUtlのプロジェクトファイル(*.aup)が開かれていません。"
+
+msgid "AviUtl project file (*.aup) has not yet been saved."
+msgstr "AviUtlのプロジェクトファイル(*.aup)がまだ保存されていません。"
+
+msgid "Bit Depth"
+msgstr "ビット解像度"
+
+msgid "Choose where to save file"
+msgstr "出力先を選択してください"
+
+msgid "Confirm"
+msgstr "確認"
+
+msgid "Destination"
+msgstr "出力先"
+
+msgid "Error"
+msgstr "エラー"
+
+msgid "Export"
+msgstr "エクスポート"
+
+msgid "Export could not be completed."
+msgstr "エクスポートが完了できません。"
+
+msgid "Export could not be started."
+msgstr "エクスポートが開始できません。"
+
+msgid ""
+"Export is not yet complete.\n"
+"Do you really want to abort?"
+msgstr ""
+"エクスポートはまだ完了していません。\n"
+"本当に中止しますか？"
+
+msgid "Failed to abort export."
+msgstr "エクスポートの中止に失敗しました。"
+
+#, c-format
+msgid ""
+"Failed to create file.\n"
+"\n"
+"%1$ls"
+msgstr ""
+"ファイルの作成に失敗しました。\n"
+"\n"
+"%1$ls"
+
+#, c-format
+msgid ""
+"Failed to delete file.\n"
+"\n"
+"%1$ls"
+msgstr ""
+"ファイルの削除に失敗しました。\n"
+"\n"
+"%1$ls"
+
+msgid "Failed to display error dialog."
+msgstr "エラーダイアログの表示に失敗しました。"
+
+msgid "Failed to display file selection dialog."
+msgstr "ファイル選択ダイアログの表示に失敗しました。"
+
+msgid "Failed to obtain my filter window handle."
+msgstr "フィルターのウィンドウハンドルが取得できませんでした。"
+
+msgid "Failed to obtain the window handle for Advanced Editing."
+msgstr "拡張編集のウィンドウハンドルが取得できませんでした。"
+
+msgid "Failed."
+msgstr "処理に失敗しました。"
+
+msgid "Finalizing..."
+msgstr "ファイルの最終処理中..."
+
+msgid "Invalid argument."
+msgstr "引数が間違っています。"
+
+msgid "NULL pointer."
+msgstr "ポインターが割り当てられていません。"
+
+msgid "Not found."
+msgstr "対象が見つかりませんでした。"
+
+msgid "Not implemented yet."
+msgstr "実装されていません。"
+
+msgid "Not sufficient buffer."
+msgstr "バッファが小さすぎます。"
+
+msgid "Out of memory."
+msgstr "メモリーが確保できません。"
+
+msgid "ParallelOutput - ChannelStrip"
+msgstr "パラアウト - チャンネルストリップ"
+
+msgid "Processing cannot continue because the wave file size is too large."
+msgstr "Waveファイルのサイズが大きすぎるため、処理を続行できません。"
+
+msgid "Save audio not managed by ChannelStrip"
+msgstr "チャンネルストリップ管轄外の音声も保存する"
+
+msgid "The currently running version of AviUtl is not supported."
+msgstr "現在実行中の AviUtl のバージョンはサポートされていません。"
+
+msgid "The currently using version of exedit.auf is not supported."
+msgstr "現在使用中の拡張編集のバージョンはサポートされていません。"
+
+msgid "Unexpected."
+msgstr "予期しないエラーです。"
+
+msgid "Unknown error code."
+msgstr "未知のエラーコードです。"
+
+#. trans: This dagger helps UTF-8 detection. You don't need to translate this.
+msgid "†"
+msgstr "†"

@@ -1,3 +1,4 @@
+option(USE_COMPILER_RT "use compiler-rt runtime" OFF)
 add_subdirectory(3rd/ovbase)
 add_subdirectory(3rd/ovutil)
 
@@ -8,6 +9,37 @@ add_custom_target(generate_version_h COMMAND
   -Doutput_file="${CMAKE_CURRENT_BINARY_DIR}/version.h"
   -P "${ovutil_SOURCE_DIR}/src/cmake/version.cmake"
 )
+
+# generate i18n.rc
+set(LANGCSV "${CMAKE_CURRENT_SOURCE_DIR}/i18n/langs.csv")
+file(READ "${LANGCSV}" langs)
+string(STRIP ${langs} langs)
+string(REPLACE "\n" ";" langs "${langs}")
+foreach(line IN LISTS langs)
+  if (line MATCHES "^#.*$|^([^,]+),$")
+    continue()
+  endif()
+  if (line MATCHES "^([^,]+),([^,]+)$")
+    list(APPEND polist "${CMAKE_CURRENT_SOURCE_DIR}/i18n/${CMAKE_MATCH_1}.po.DO_NOT_EDIT")
+  else()
+    message(FATAL_ERROR "invalid language difinition: ${line}")
+  endif()
+endforeach()
+add_custom_command(
+  OUTPUT
+    "${CMAKE_CURRENT_BINARY_DIR}/i18n.rc"
+  COMMAND
+    ${CMAKE_COMMAND}
+    -Doutput_dir="${CMAKE_CURRENT_BINARY_DIR}"
+    -Drctmpl="${CMAKE_CURRENT_SOURCE_DIR}/i18n.rc.tmpl"
+    -P "${CMAKE_CURRENT_SOURCE_DIR}/i18n_rc.cmake"
+  WORKING_DIRECTORY
+    "${CMAKE_CURRENT_SOURCE_DIR}/i18n"
+  DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/i18n.rc.tmpl"
+    ${polist}
+)
+add_custom_target(generate_rc DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/i18n.rc")
 
 add_custom_target(copy_related_files
   COMMAND ${CMAKE_COMMAND} -E copy "${PROJECT_SOURCE_DIR}/README.md" "${CMAKE_BINARY_DIR}/bin/AudioMixer.txt"
@@ -25,6 +57,7 @@ add_library(audiomixer_auf SHARED
   dither.c
   dynamics.c
   error_axr.c
+  i18n.rc
   lagger.c
   mixer.c
   parallel_output.c
@@ -48,6 +81,8 @@ list(APPEND targets test_circbuffer)
 add_executable(test_circbuffer_i16 circbuffer_i16_test.c)
 list(APPEND targets test_circbuffer_i16)
 
+set(is_clang "$<C_COMPILER_ID:Clang>")
+set(v16_or_later "$<VERSION_GREATER_EQUAL:$<C_COMPILER_VERSION>,16>")
 foreach(target ${targets})
   if(target MATCHES "^test_")
     add_test(NAME ${target} COMMAND ${target})
@@ -61,6 +96,7 @@ foreach(target ${targets})
     $<$<CONFIG:Release>:NDEBUG>
   )
   target_compile_options(${target} PRIVATE
+    $<$<AND:$<BOOL:${WIN32}>,$<BOOL:${USE_COMPILER_RT}>>:--rtlib=compiler-rt>
     -mstackrealign
     -Wall
     -Wextra
@@ -71,6 +107,7 @@ foreach(target ${targets})
     -pedantic-errors
     -Wno-declaration-after-statement
     -Wno-padded
+    $<$<AND:${is_clang},${v16_or_later}>:-Wno-unsafe-buffer-usage>
     -ffunction-sections
     -fdata-sections
     -msse2

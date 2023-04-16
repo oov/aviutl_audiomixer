@@ -1,0 +1,83 @@
+# Chinese translations for GCMZDrops vX.X.X ( dfc4ea0 ) package.
+# Copyright (C) 2023 GCMZDrops Developers
+# This file is distributed under the same license as the GCMZDrops package.
+# Automatically generated, 2023.
+#
+msgid ""
+msgstr ""
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: Automatically generated\n"
+"Language-Team: none\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=ASCII\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Aborted."
+msgstr ""
+
+msgid "Advanced Editing plug-in exedit.auf cannot be found in the same folder as GCMZDrops.auf."
+msgstr ""
+
+msgid "Advanced Editing plug-in exedit.auf cannot be found."
+msgstr ""
+
+msgid "An error occurred during processing."
+msgstr ""
+
+msgid "AviUtl project file (*.aup) has not yet been opened."
+msgstr ""
+
+msgid "AviUtl project file (*.aup) has not yet been saved."
+msgstr ""
+
+msgid "Error"
+msgstr ""
+
+msgid "Export could not be completed."
+msgstr ""
+
+msgid "Export could not be started."
+msgstr ""
+
+msgid "Failed to display error dialog."
+msgstr ""
+
+msgid "Failed to display file selection dialog."
+msgstr ""
+
+msgid "Failed."
+msgstr ""
+
+msgid "Invalid argument."
+msgstr ""
+
+msgid "NULL pointer."
+msgstr ""
+
+msgid "Not found."
+msgstr ""
+
+msgid "Not implemented yet."
+msgstr ""
+
+msgid "Not sufficient buffer."
+msgstr ""
+
+msgid "Out of memory."
+msgstr ""
+
+msgid "Processing cannot continue because the file size is too large."
+msgstr ""
+
+msgid "The currently running version of AviUtl is not supported."
+msgstr ""
+
+msgid "The currently using version of exedit.auf is not supported."
+msgstr ""
+
+msgid "Unexpected."
+msgstr ""
+
+msgid "Unknown error code."
+msgstr ""

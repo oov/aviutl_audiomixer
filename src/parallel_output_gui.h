@@ -18,7 +18,7 @@ struct parallel_output_gui_context {
   void *userdata;
 
   void (*progress_func)(struct parallel_output_gui_context const *const ctx, int const progress);
-  void (*progress_text_func)(struct parallel_output_gui_context const *const ctx, struct wstr const *const text);
+  void (*progress_text_func)(struct parallel_output_gui_context const *const ctx, char const *const text);
 };
 
 typedef NODISCARD error (*parallel_output_gui_callback)(struct parallel_output_gui_context *ctx);

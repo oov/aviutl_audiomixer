@@ -4,6 +4,7 @@
 #include "ovutil/str.h"
 #include "ovutil/win32.h"
 
+#include "i18n.h"
 #include "mixer.h"
 
 struct entry {
@@ -278,9 +279,8 @@ NODISCARD static error create_file(HANDLE *const dest,
   HANDLE h = CreateFileW(
       tmp.ptr, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
   if (h == INVALID_HANDLE_VALUE) {
-    struct wstr errmsg = {0};
-    ereport(scpym(&errmsg, L"ファイル \"", tmp.ptr, L"\" を作成できませんでした。"));
-    err = emsg(err_type_hresult, HRESULT_FROM_WIN32(GetLastError()), errmsg.ptr ? &errmsg : NULL);
+    HRESULT const hr = HRESULT_FROM_WIN32(GetLastError());
+    err = emsg_i18nf(err_type_hresult, hr, L"%1$ls", gettext("Failed to create file.\n\n%1$ls"), tmp.ptr);
     goto cleanup;
   }
   struct wave_header wh = {
@@ -549,9 +549,8 @@ static void entry_free_and_remove_all(struct parallel_output *const p, int const
     ereport(entry_destroy(&e));
     if (esucceeded(err)) {
       if (!DeleteFileW(tmp.ptr)) {
-        struct wstr errmsg = {0};
-        ereport(scpym(&errmsg, L"ファイル \"", tmp.ptr, L"\" を削除できませんでした。"));
-        ereport(emsg(err_type_hresult, HRESULT_FROM_WIN32(GetLastError()), errmsg.ptr ? &errmsg : NULL));
+        HRESULT const hr = HRESULT_FROM_WIN32(GetLastError());
+        ereport(emsg_i18nf(err_type_hresult, hr, L"%1$ls", gettext("Failed to delete file.\n\n%1$ls"), tmp.ptr));
       }
     } else {
       ereport(err);
