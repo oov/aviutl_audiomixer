@@ -121,8 +121,7 @@ AviUtl のメインメニューから `［ファイル］→［エクスポー�
 ビルドについて
 --------------
 
-[MSYS2](https://www.msys2.org/) + CLANG32 上で開発し、リリース用ファイルは GitHub Actions にて生成しています。  
-ビルド方法や必要になるパッケージなどは [GitHub Actions の設定ファイル](https://github.com/oov/aviutl_audiomixer/blob/main/.github/workflows/releaser.yml) を参照してください。
+Windows 上の Git Bash などで `bash build.bash` でビルドできます。
 
 Credits
 -------
