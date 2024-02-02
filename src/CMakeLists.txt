@@ -30,6 +30,7 @@ add_custom_command(
     "${CMAKE_CURRENT_BINARY_DIR}/i18n.rc"
   COMMAND
     ${CMAKE_COMMAND}
+    -Dsrc_dir="${CMAKE_CURRENT_SOURCE_DIR}/i18n"
     -Doutput_dir="${CMAKE_CURRENT_BINARY_DIR}"
     -Drctmpl="${CMAKE_CURRENT_SOURCE_DIR}/i18n.rc.tmpl"
     -P "${CMAKE_CURRENT_SOURCE_DIR}/i18n_rc.cmake"
