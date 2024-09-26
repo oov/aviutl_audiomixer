@@ -26,7 +26,7 @@ static inline float dither_process(float x, struct dither *const d, size_t const
   if (fabsf(x) > thr) {
     struct dither_state *const ds = d->ptr + channel;
     static float const divider = 1.f / (float)(UINT32_MAX);
-    float v = (float)(ov_splitmix32(seed)) * divider - 0.5f;
+    float v = (float)(ov_splitmix32(seed))*divider - 0.5f;
     x = x * (scale - 1.f) + (v - ds->sample);
     ds->sample = v;
   } else {
