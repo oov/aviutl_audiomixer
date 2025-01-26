@@ -24,6 +24,7 @@ static struct mixer *g_mixer = NULL;
 static int g_last_frame = -1;
 
 static int16_t *g_warming_buffer = NULL;
+static size_t g_warming_buffer_samples = 0;
 
 static HFONT g_font = NULL;
 static HWND g_id_combo = NULL;
@@ -163,17 +164,20 @@ NODISCARD static error set_current_format(void) {
   }
   float const sample_rate = (float)fi.audio_rate;
   size_t const channels = (size_t)fi.audio_ch;
-  if (fcmp(sample_rate, ==, mixer_get_sample_rate(g_mixer), 1e-6f) && channels == mixer_get_channels(g_mixer)) {
-    goto cleanup;
-  }
   // It seems that AviUtl sometimes writes to a buffer of two or more frames instead of one.
   // If the buffer size is reserved just below the required buffer size, it will result in buffer overrun.
   // To avoid this problem, reserve a larger buffer size.
   size_t const samples_per_frame = (size_t)((fi.audio_rate * fi.video_scale * 5) / (fi.video_rate * 2)) + 32;
 
+  if (fcmp(sample_rate, ==, mixer_get_sample_rate(g_mixer), 1e-6f) && channels == mixer_get_channels(g_mixer) &&
+      g_warming_buffer_samples >= samples_per_frame) {
+    goto cleanup;
+  }
+
   if (g_warming_buffer) {
     ereport(mem_aligned_free(&g_warming_buffer));
   }
+  g_warming_buffer_samples = samples_per_frame;
   err = mem_aligned_alloc(&g_warming_buffer, samples_per_frame * channels, sizeof(int16_t), 16);
   if (efailed(err)) {
     err = ethru(err);
